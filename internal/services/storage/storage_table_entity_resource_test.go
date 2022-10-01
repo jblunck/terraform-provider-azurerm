@@ -89,6 +89,28 @@ func TestAccTableEntity_update_typed(t *testing.T) {
 	})
 }
 
+func TestAccTableEntity_update_charset(t *testing.T) {
+	data := acceptance.BuildTestData(t, "azurerm_storage_table_entity", "test")
+	r := StorageTableEntityResource{}
+
+	data.ResourceTest(t, r, []acceptance.TestStep{
+		{
+			Config: r.basic_charset(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+			),
+		},
+		data.ImportStep(),
+		{
+			Config: r.updated_charset(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+			),
+		},
+		data.ImportStep(),
+	})
+}
+
 func (r StorageTableEntityResource) Exists(ctx context.Context, client *clients.Client, state *pluginsdk.InstanceState) (*bool, error) {
 	id, err := entities.ParseResourceID(state.ID)
 	if err != nil {
@@ -221,4 +243,41 @@ resource "azurerm_storage_table" "test" {
   storage_account_name = azurerm_storage_account.test.name
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomString, data.RandomInteger)
+}
+
+func (r StorageTableEntityResource) basic_charset(data acceptance.TestData) string {
+	template := r.template(data)
+	return fmt.Sprintf(`
+%s
+
+resource "azurerm_storage_table_entity" "test" {
+  storage_account_name = azurerm_storage_account.test.name
+  table_name           = azurerm_storage_table.test.name
+
+  partition_key = "test_partition%d"
+  row_key       = "test_row_ !\"$%&'()*+,-.:;<=>@[]^_{|}~%d"
+  entity = {
+    Foo = "Bar"
+  }
+}
+`, template, data.RandomInteger, data.RandomInteger)
+}
+
+func (r StorageTableEntityResource) updated_charset(data acceptance.TestData) string {
+	template := r.template(data)
+	return fmt.Sprintf(`
+%s
+
+resource "azurerm_storage_table_entity" "test" {
+  storage_account_name = azurerm_storage_account.test.name
+  table_name           = azurerm_storage_table.test.name
+
+  partition_key = "test_partition%d"
+  row_key       = "test_row_ !\"$%&'()*+,-.:;<=>@[]^_{|}~%d"
+  entity = {
+    Foo  = "Bar"
+    Test = "Updated"
+  }
+}
+`, template, data.RandomInteger, data.RandomInteger)
 }
